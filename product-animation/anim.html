@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>*{margin:0}html,body{width:100%;height:100%;overflow:hidden;background:radial-gradient(ellipse 70% 70% at 55% 45%,#f4f5f6 0%,#dfe2e5 60%,#c9cdd2 100%);font-family:Onest}
+canvas{display:block;position:absolute;inset:0}
+#cap{position:absolute;left:80px;bottom:90px;color:#1b2229;transition:none}
+#cap b{display:block;font:800 64px/1.02 Onest;letter-spacing:-1.5px}
+#cap span{display:block;font:500 26px Onest;color:#4d5864;margin-top:14px}
+#tag{position:absolute;left:80px;top:70px;font:500 20px 'JetBrains Mono';color:#4d5864}
+#bar{position:absolute;left:80px;right:80px;bottom:50px;height:4px;background:#0000001a;border-radius:2px}
+#bar i{display:block;height:100%;background:#e0772c;border-radius:2px;width:0}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head><body>
+<div id="tag">ЩН-400.500.200 · лист 1,5 мм</div>
+<div id="cap"><b></b><span></span></div>
+<div id="bar"><i></i></div>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+const W = innerWidth, H = innerHeight
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
+r.setPixelRatio(1); r.setSize(W, H); r.toneMapping = THREE.ACESFilmicToneMapping
+r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap
+document.body.prepend(r.domElement)
+const scene = new THREE.Scene()
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture
+const M = {
+  body: new THREE.MeshStandardMaterial({ color: 0xd5d6d2, metalness: 0.15, roughness: 0.55 }),
+  door_c: new THREE.MeshStandardMaterial({ color: 0xd5d6d2, metalness: 0.15, roughness: 0.55 }),
+  plate: new THREE.MeshStandardMaterial({ color: 0xe0772c, metalness: 0.2, roughness: 0.5 }),
+  rails: new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 1, roughness: 0.3 }),
+  lock_c: new THREE.MeshStandardMaterial({ color: 0x222326, metalness: 0.4, roughness: 0.45 }),
+}
+const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root)
+const hinge = new THREE.Vector3(-200, -101, 0)          // ось петли в координатах CAD (ось Z)
+const pivot = new THREE.Group(); pivot.position.copy(hinge); root.add(pivot)
+const loader = new GLTFLoader()
+const load = (n) => new Promise(res => loader.load(`${n}.glb`, g => { g.scene.traverse(o => { if (o.isMesh) { o.material = M[n]; o.castShadow = o.receiveShadow = true; o.geometry.computeVertexNormals() } });
+  if (n === 'door_c' || n === 'lock_c') { g.scene.position.copy(hinge).multiplyScalar(-1); pivot.add(g.scene) } else root.add(g.scene); res() }))
+await Promise.all(Object.keys(M).map(load))
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.ShadowMaterial({ opacity: 0.09 }))
+floor.rotation.x = -Math.PI / 2; floor.position.y = -250; floor.receiveShadow = true; scene.add(floor)
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-250, 1600, 300); key.castShadow = true
+key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -800, right: 800, top: 800, bottom: -800, near: 10, far: 3000 }); scene.add(key)
+const rim = new THREE.DirectionalLight(0xdfe8ff, 0.8); rim.position.set(700, 400, 600); scene.add(rim)
+const camera = new THREE.PerspectiveCamera(24, W / H, 1, 10000)
+const target = new THREE.Vector3(0, 0, 0)
+const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+const seg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)))
+const caps = [[0, 'Щит навесной', 'Корпус, дверь и монтажная панель из листа 1,5 мм'], [0.34, 'Дверь на петлях', 'Замок, отбортовка 20 мм, открывание на 105°'],
+              [0.62, 'Внутри — готово к монтажу', 'Монтажная панель и 4 DIN-рейки 35 мм'], [0.84, 'Всё — в файлах для цеха', 'STEP-сборка, развёртки DXF, чертежи PDF']]
+window.renderAt = (t) => {
+  const open = ease(seg(t, 0.3, 0.6))
+  pivot.rotation.z = -open * 105 * Math.PI / 180
+  // орбита: азимут от -55° к +35°, лёгкий наезд
+  const az = THREE.MathUtils.degToRad(-55 + 90 * ease(seg(t, 0, 1)))
+  const el = THREE.MathUtils.degToRad(22 - 6 * ease(seg(t, 0.55, 1)))
+  const dist = 2650 - 350 * ease(seg(t, 0.25, 0.75))
+  camera.position.set(Math.sin(az) * Math.cos(el) * dist, Math.sin(el) * dist, Math.cos(az) * Math.cos(el) * dist)
+  camera.lookAt(target.set(0, -10, 0)); camera.setViewOffset(W, H, -W * 0.14, 0, W, H)
+  r.render(scene, camera)
+  let c = caps[0]; for (const x of caps) if (t >= x[0]) c = x
+  document.querySelector('#cap b').textContent = c[1]; document.querySelector('#cap span').textContent = c[2]
+  const since = t - c[0]; document.getElementById('cap').style.opacity = Math.min(1, since / 0.04).toFixed(3)
+  document.querySelector('#bar i').style.width = (t * 100).toFixed(2) + '%'
+}
+window.renderAt(0)
+document.body.dataset.ready = '1'
+</script></body></html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<style>*{margin:0}html,body{width:100%;height:100%;overflow:hidden;background:radial-gradient(ellipse 70% 70% at 55% 45%,#f4f5f6 0%,#dfe2e5 60%,#c9cdd2 100%)}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+const q = new URLSearchParams(location.search)
+const cam = (q.get('cam') || '-0.95,-1.25,0.62').split(',').map(Number)
+const W = innerWidth, H = innerHeight
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
+r.setPixelRatio(devicePixelRatio); r.setSize(W, H)
+r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0
+r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap
+document.body.appendChild(r.domElement)
+const scene = new THREE.Scene()
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture
+const M = {
+  body: new THREE.MeshStandardMaterial({ color: 0xd5d6d2, metalness: 0.15, roughness: 0.55 }),   // RAL 7035, порошок
+  door: new THREE.MeshStandardMaterial({ color: 0xd5d6d2, metalness: 0.15, roughness: 0.55 }),
+  plate: new THREE.MeshStandardMaterial({ color: 0xe0772c, metalness: 0.2, roughness: 0.5 }),
+  rails: new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 1, roughness: 0.3 }),
+  lock: new THREE.MeshStandardMaterial({ color: 0x222326, metalness: 0.4, roughness: 0.45 }),
+}
+const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root)
+const loader = new GLTFLoader()
+const load = (n) => new Promise(res => loader.load(`${n}.glb`, g => { g.scene.traverse(o => { if (o.isMesh) { o.material = M[n]; o.castShadow = o.receiveShadow = true; o.geometry.computeVertexNormals() } }); root.add(g.scene); res() }))
+await Promise.all(Object.keys(M).map(load))
+// мягкая тень на полу
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.ShadowMaterial({ opacity: 0.09 }))
+floor.rotation.x = -Math.PI / 2; floor.position.y = -250; floor.receiveShadow = true; scene.add(floor)
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-250, 1600, 300); key.castShadow = true
+key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -700, right: 700, top: 700, bottom: -700, near: 10, far: 3000 }); key.shadow.radius = 6
+scene.add(key)
+const rim = new THREE.DirectionalLight(0xdfe8ff, 0.8); rim.position.set(700, 400, 600); scene.add(rim)
+const box = new THREE.Box3().setFromObject(root), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3()).length()
+const camera = new THREE.PerspectiveCamera(24, W / H, 1, 10000)
+const dir = new THREE.Vector3(cam[0], cam[2], cam[1]).normalize()
+camera.position.copy(c).addScaledVector(dir, sz * (+q.get('fit') || 1.75)); camera.lookAt(c)
+r.render(scene, camera)
+document.body.dataset.ready = '1'
+</script></body></html>
