@@ -1,12 +1,16 @@
 # threejs-viz
 
-Real-time 3D for the web with plain Three.js: product animations and interior walk-throughs that load in a browser tab, plus a headless recorder that turns them into MP4 for social media.
+3D в реальном времени для веба на чистом Three.js: анимации товаров и прогулки по
+интерьерам, которые открываются во вкладке браузера, и headless-рекордер, который превращает
+их в MP4 для соцсетей.
 
 ![](docs/orbit.gif)
 
 ## apartment-3d
 
-Clay-style 3D model of a 54 m2 apartment built from the floor plan: walls cut to eye level, furniture blocks, soft shadows and an orbit camera. The same scene renders stills for the client presentation.
+Глиняная 3D-модель квартиры 54 м², построенная по планировке: стены срезаны на уровне глаз,
+мебель блоками, мягкие тени и орбитальная камера. Та же сцена рендерит кадры для
+презентации клиенту.
 
 | | | |
 |---|---|---|
@@ -14,7 +18,8 @@ Clay-style 3D model of a 54 m2 apartment built from the floor plan: walls cut to
 
 ## product-animation
 
-The electrical cabinet from [cad-engineering](https://github.com/YoungOver/cad-engineering): door opening, component reveal and camera moves driven by a timeline, light and dark versions.
+Электрошкаф из [cad-engineering](https://github.com/YoungOver/cad-engineering): открывание
+двери, появление компонентов и пролёты камеры по таймлайну, светлая и тёмная версии.
 
 | | | |
 |---|---|---|
@@ -22,7 +27,9 @@ The electrical cabinet from [cad-engineering](https://github.com/YoungOver/cad-e
 
 ## tools/recorder.mjs
 
-Deterministic frame recorder: opens a page in headless Chrome, drives the animation clock frame by frame through `window.renderAt(t)` and pipes frames to ffmpeg. No dropped frames regardless of machine speed.
+Детерминированная запись кадров: открывает страницу в headless Chrome, ведёт часы анимации
+кадр за кадром через `window.renderAt(t)` и отдаёт кадры в ffmpeg. Ни одного пропущенного
+кадра, как бы медленно ни работала машина.
 
 ```bash
 node tools/recorder.mjs apartment-3d orbit.html orbit.mp4 12 1080 1080
@@ -30,7 +37,7 @@ node tools/recorder.mjs apartment-3d orbit.html orbit.mp4 12 1080 1080
 
 ## CGI
 
-Product renders from the same pipeline:
+Рендеры товаров из того же конвейера:
 
 | | |
 |---|---|
