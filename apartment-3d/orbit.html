@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<style>*{margin:0}html,body{width:100%;height:100%;overflow:hidden;background:#e9e6e0}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+const q = new URLSearchParams(location.search)
+const W = innerWidth, H = innerHeight
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+r.setPixelRatio(1); r.setSize(W, H); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05
+r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap
+document.body.appendChild(r.domElement)
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xe9e6e0)
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture
+scene.environmentIntensity = 0.55
+// план в метрах: x вправо, z вниз (как на чертеже), y вверх
+const mat = (c, rough = 0.85, metal = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, metalness: metal })
+const M = { wall: mat(0xf4f1ec, 0.95), cut: mat(0x7a756d, 0.9), oak: mat(0xcfae84, 0.7), tile: mat(0xd9e0e0, 0.4), stone: mat(0xcfc9bf, 0.8),
+  white: mat(0xfbfaf7, 0.6), sage: mat(0x9fae98, 0.95), clay: mat(0xb8612a, 0.8), dark: mat(0x2e3338, 0.5), glass: new THREE.MeshPhysicalMaterial({ color: 0xdfefff, roughness: 0.05, transmission: 0.6, transparent: true, opacity: 0.35 }),
+  linen: mat(0xece6da, 0.95), wood2: mat(0x8a6a4a, 0.6), plant: mat(0x3f7a4d, 0.8) }
+const add = (geo, m, x, y, z, cast = true) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; scene.add(o); return o }
+const box = (w, h, d, m, x, y, z, rad = 0) => add(rad ? new RoundedBoxGeometry(w, h, d, 3, rad) : new THREE.BoxGeometry(w, h, d), m, x + w / 2, y + h / 2, z + d / 2)
+const WH = 1.35  // высота среза стен
+// полы
+const floor = (x, z, w, d, m) => box(w, 0.04, d, m, x, -0.04, z)
+floor(0, 0, 5.4, 3.8, M.oak); floor(5.4, 0, 3.6, 3.8, M.oak); floor(6.2, 3.8, 2.8, 2.2, M.oak); floor(0, 3.8, 2.2, 2.2, M.tile); floor(2.2, 3.8, 4.0, 2.2, M.stone)
+// стены: наружные 0.3, перегородки 0.12; проёмы вырезаем разбиением
+const wall = (x1, z1, x2, z2, t, h = WH) => { const w = Math.abs(x2 - x1) || t, d = Math.abs(z2 - z1) || t; const o = box(w, h, d, M.wall, Math.min(x1, x2) - (x1 === x2 ? t / 2 : 0), 0, Math.min(z1, z2) - (z1 === z2 ? t / 2 : 0));
+  box(w, 0.012, d, M.cut, o.position.x - w / 2, h, o.position.z - d / 2, 0) }
+const T = 0.3, t = 0.12
+// верх (окна 1.3–3.0, 3.5–4.9, 6.3–8.1) — низкий парапет 0.8 под окнами
+const top = [[-0.15, 1.3], [3.0, 3.5], [4.9, 6.3], [8.1, 9.15]]; top.forEach(([a, b]) => wall(a, -0.15, b, -0.15, T))
+;[[1.3, 3.0], [3.5, 4.9], [6.3, 8.1]].forEach(([a, b]) => { wall(a, -0.15, b, -0.15, T, 0.8); box(b - a, 0.9, 0.04, M.glass, a, 0.8, -0.17) })
+wall(-0.15, 6.15, 3.55, 6.15, T); wall(4.45, 6.15, 9.15, 6.15, T); wall(-0.15, -0.15, -0.15, 6.15, T)
+wall(9.15, -0.15, 9.15, 4.3, T); wall(9.15, 5.5, 9.15, 6.15, T); wall(9.15, 4.3, 9.15, 5.5, T, 0.8)
+wall(5.4, 0, 5.4, 3.8, t); wall(0, 3.8, 2.4, 3.8, t); wall(3.4, 3.8, 5.6, 3.8, t); wall(6.4, 3.8, 9, 3.8, t)
+wall(2.2, 3.8, 2.2, 4.2, t); wall(2.2, 4.95, 2.2, 6, t); wall(6.2, 3.8, 6.2, 4.15, t); wall(6.2, 4.95, 6.2, 6, t)
+// кухня
+box(0.6, 0.88, 2.9, M.white, 0.02, 0, 0.3, 0.02); box(0.62, 0.04, 2.92, M.stone, 0.0, 0.88, 0.29)
+// обеденный стол и стулья
+add(new THREE.CylinderGeometry(0.55, 0.55, 0.04, 48), M.oak, 2.1, 0.74, 1.9); add(new THREE.CylinderGeometry(0.06, 0.12, 0.72, 16), M.dark, 2.1, 0.36, 1.9)
+;[[0, -0.8], [0, 0.8], [-0.8, 0], [0.8, 0]].forEach(([dx, dz]) => { box(0.42, 0.45, 0.42, M.linen, 2.1 + dx - 0.21, 0, 1.9 + dz - 0.21, 0.05); })
+// диван, ковёр, столик
+box(0.9, 0.42, 2.3, M.sage, 4.45, 0, 0.7, 0.08); box(0.25, 0.8, 2.3, M.sage, 5.1, 0, 0.7, 0.08); box(0.9, 0.62, 0.2, M.sage, 4.45, 0, 0.6, 0.06); box(0.9, 0.62, 0.2, M.sage, 4.45, 0, 2.9, 0.06)
+add(new THREE.CylinderGeometry(1.15, 1.15, 0.015, 64), M.clay, 3.7, 0.008, 1.85, false).scale.set(1, 1, 0.8)
+box(0.6, 0.38, 1.0, M.oak, 3.55, 0, 1.35, 0.1)
+add(new THREE.CylinderGeometry(0.18, 0.14, 0.4, 24), M.clay, 3.2, 0.2, 0.45); add(new THREE.SphereGeometry(0.34, 24, 16), M.plant, 3.2, 0.7, 0.45)
+// спальня
+box(1.95, 0.35, 1.6, M.white, 7.0, 0, 1.0, 0.05); box(1.5, 0.08, 1.62, M.linen, 7.0, 0.35, 0.99, 0.03); box(0.12, 0.9, 1.6, M.oak, 8.83, 0, 1.0, 0.03)
+box(0.4, 0.14, 0.6, M.white, 8.4, 0.43, 1.1, 0.06); box(0.4, 0.14, 0.6, M.white, 8.4, 0.43, 1.9, 0.06)
+box(0.45, 0.5, 0.45, M.oak, 8.45, 0, 0.45, 0.03); box(0.45, 0.5, 0.45, M.oak, 8.45, 0, 2.7, 0.03)
+box(0.6, 1.25, 2.1, M.white, 5.47, 0, 0.3, 0.02)
+// санузел
+box(0.72, 0.55, 1.7, M.white, 0.07, 0, 3.9, 0.12); box(0.6, 0.85, 0.42, M.white, 1.1, 0, 3.88, 0.04); add(new THREE.CapsuleGeometry(0.17, 0.2, 6, 16), M.white, 1.85, 0.3, 5.55)
+// прихожая и кабинет
+box(1.4, 1.25, 0.55, M.white, 4.75, 0, 5.4, 0.02); box(0.9, 0.45, 0.45, M.oak, 2.3, 0, 5.45, 0.03)
+box(1.38, 0.74, 0.62, M.oak, 7.55, 0, 3.9, 0.02); box(0.5, 0.5, 0.5, M.sage, 7.95, 0, 4.6, 0.08); box(2.6, 1.1, 0.42, M.white, 6.3, 0, 5.5, 0.02)
+// свет
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.6); sun.position.set(-3, 9, -6); sun.target.position.set(4.5, 0, 3); sun.castShadow = true
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 30 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02
+scene.add(sun, sun.target)
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9cbb8, 0.55))
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.12 })); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; ground.receiveShadow = true; scene.add(ground)
+const cam = (q.get('cam') || '-6,12,-11').split(',').map(Number)
+const camera = new THREE.PerspectiveCamera(+(q.get('fov') || 26), W / H, 0.1, 200)
+camera.position.set(4.5 + cam[0], cam[1], 3 + cam[2]); camera.lookAt(4.5, 0, 3.1)
+window.renderAt = (t) => { const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; const a = -2.4 + 1.9 * e; const R = 13.5 - 2.5 * Math.sin(t * Math.PI); camera.position.set(4.5 + Math.sin(a) * R, 10.5 - 2 * t, 3 + Math.cos(a) * R); camera.lookAt(4.5, 0, 3.1); r.render(scene, camera) }
+if (q.get('orbit')) window.renderAt(0); else r.render(scene, camera)
+document.body.dataset.ready = '1'
+</script></body></html>
